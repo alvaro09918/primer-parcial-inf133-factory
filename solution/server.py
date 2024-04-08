@@ -1,63 +1,75 @@
-from http.server import HTTPServer,BaseHTTPRequestHandler
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
-from urllib.parse import urlparse, parse_qs
-pedidos=[
-    {
-        "client":"Juan Perez",
-        "status": "Pendiente",
-        "payment": "Tarjeta de Credito",
-        "shipping":10.0,
-        "order_type":"Digital"
-    },
-]
-    
 
-class RestRequestHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        parsed_p= urlparse(self.path)
-        query_params = parse_qs(parsed_p.query)
-        if parsed_p.path=="/orders":
-            if "status" in query_params:
-                status = query_params["status"][0]
-                pedidos_estatus=next(
-                    pedido for pedido in pedidos if pedidos["status"]==status
-                )
-                if pedidos_estatus:
-                    self.send_response(201)
-                    self.send_header("", "")
-                    self.end_headers()
-                    self.wfile.write(json.dumps(pedidos_estatus).encode("utf-8"))
-                else:
-                    self.send_response(204)
-                    self.send_header("", "")
-                    self.end_headers()
-                    self.wfile.write(json.dumps("no se encontro status").encode("utf-8"))
-                            
+pedidos = {}
 
-            else: 
-                self.send_response(200)
-                self.send_header("", "")
-                self.end_headers()
-                self.wfile.write(json.dumps(pedidos).encode("utf-8"))   
-        else:
-            self.send_response(404)
-            self.send_header("", "")
-            self.end_headers()
-            self.wfile.write(json.dumps("ruta no encontrada").encode("utf-8"))    
+class Pedido:
+    def __init__(self, client, status, payment,shipping,order_type):
+        self.order_type=order_type
+        self.client=client
+        self.status=status
+        self.payment=payment
+        self.shipping=shipping
         
+class Fisico(Pedido):
+    def __init__(self, client, status, payment,shipping):
+        super.__init__("fisico",client, status, payment,shipping) 
 
-def run_server():
+class Digital(Pedido):
+    def __init__(self, client, status, payment,shipping):
+        super.__init__("digital",client, status, payment,shipping)         
+            
+class FactoryPedidos():
+    def crear_Pedido(self, client, status, payment, shipping, order_type):
+        if "fisico"==order_type:
+            return Fisico(client, status, payment,shipping)
+        elif "digital"==order_type:
+            return Digital(client, status, payment,shipping)
+        else:
+            return ValueError("")
+class HTTPDataHandler:
+    @staticmethod
+    def handle_response(handler, status, data):
+        handler.send_response(status)
+        handler.send_header("Content-type", "application/json")
+        handler.end_headers()
+        handler.wfile.write(json.dumps(data).encode("utf-8"))
+
+class PedidoService:
+    def __init__(self):
+        self.factory =FactoryPedidos()
+
+
+    def listar(self):
+        return {index: pedido.__dict__ for index, pedido in pedidos.items()}
+
+class PedidoRequestHandler(BaseHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        self.chocolate_service = PedidoService()
+        super().__init__(*args, **kwargs)
+
+   
+    def do_GET(self):
+        if self.path == "/orders":
+            response_data = self.PedidoService.listar()
+            HTTPDataHandler.handle_response(self, 200, response_data)
+            
+        else:
+            HTTPDataHandler.handle_response(
+                self, 404, {"mensaje": "Ruta no encontrada"}
+            )
+
+
+def main():
     try:
-        server_adress=('', 8000)
-        httpd=HTTPServer(server_adress, RestRequestHandler)
-        print("levantando servidor web/")
+        server_address = ("", 8000)
+        httpd = HTTPServer(server_address, PedidoRequestHandler)
+        print("Iniciando servidor web")
         httpd.serve_forever()
-    
     except KeyboardInterrupt:
-        print("apagando el servidor")
+        print("Apagando servidor web")
         httpd.socket.close()
 
-if __name__=="__main__":
-    run_server()
-      
 
+if __name__ == "__main__":
+    main()
