@@ -45,13 +45,13 @@ class PedidoService:
 
 class PedidoRequestHandler(BaseHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
-        self.chocolate_service = PedidoService()
+        self.pedido = PedidoService()
         super().__init__(*args, **kwargs)
 
    
     def do_GET(self):
         if self.path == "/orders":
-            response_data = self.PedidoService.listar()
+            response_data = self.pedido.listar()
             HTTPDataHandler.handle_response(self, 200, response_data)
             
         else:
